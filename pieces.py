@@ -1,4 +1,3 @@
-
 class Piece:
     def __init__(self, player, field):
         self.player = player
@@ -9,13 +8,8 @@ class Piece:
         self.name_long = None
         self.photo = None
         self.canvas_id = None
-        self.current_valid_moves = [] # offsets to fields where piece can move on board
         self.first_move_vectors = {}
         self.move_vectors = {}
-        pass
-
-    def clear_current_moves(self):
-        self.current_valid_moves = []
 
     def getMoveVectors(self):
             '''
@@ -24,17 +18,8 @@ class Piece:
             '''
             return self.move_vectors
 
-    def getCurrentMoves(self):
-        if self.current_valid_moves:
-            return self.current_valid_moves
-        else:
-            return False
-
     def update_field(self, field):
         self.field = field
-
-    def set_current_moves(self, list):
-        self.current_valid_moves = list
 
     def show(self):
         print(self.name_long, self.name_short, self.field, self.color)
@@ -139,6 +124,39 @@ class Król(Piece):
                              'SW' : [[-1,-1]],
                              'SE' : [[-1,1]],
                             }
+
+        self.check_vectors = [
+
+                    ([Wieża, Hetman],  {'S' : [[0,1], [0,2], [0,3], [0,4], [0,5], [0,6], [0,7]],
+                                         'N' : [[0,-1], [0,-2], [0,-3], [0,-4], [0,-5], [0,-6], [0,-7]],
+                                         'E' : [[-1,0], [-2,0], [-3,0], [-4,0], [-5,0], [-6,0], [-7,0]],
+                                         'W' : [[1,0], [2,0], [3,0], [4,0], [5,0], [6,0], [7,0]]}),
+
+                    ([Goniec, Hetman], {'SE' : [[1,1], [2,2], [3,3], [4,4], [5,5], [6,6], [7,7]],
+                                         'SW' : [[1,-1], [2,-2], [3,-3], [4,-4], [5,-5], [6,-6], [7,-7]],
+                                         'NE' : [[-1,-1], [-2,-2], [-3,-3], [-4,-4], [-5,-5], [-6,-6], [-7,-7]],
+                                         'NW' : [[-1,1], [-2,2], [-3,3], [-4,4], [-5,5], [-6,6], [-7,7]]}),
+                    ([Skoczek],         {'S' : [[-1,2]],
+                                         'N' : [[-1,-2]],
+                                         'E' : [[-2,-1]],
+                                         'W' : [[2,-1]],
+                                         'S2' : [[1,2]],
+                                         'N2' : [[1,-2]],
+                                         'E2' : [[-2,1]],
+                                         'W2' : [[2,1]]})
+                    ]
+
+        self.check_vectors_pawn = {}
+        if player.forward == 'N':        # king white
+            self.check_vectors.append(([Pion], {'SE' : [[1,-1]],
+                                                'SW' : [[1,1]]}))
+
+        if player.forward == 'S':        # king black
+            self.check_vectors.append(([Pion], {'NE' : [[-1,-1]],
+                                                'NW' : [[-1,1]]}))
+
+    def get_check_vectors(self):
+        return self.check_vectors
 
 
 # ----------------------------------------- main ------------------------------------------

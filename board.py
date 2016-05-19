@@ -1,4 +1,3 @@
-# defined chess board with all squares
 from pieces import *
 from square import *
 from player import *
@@ -107,6 +106,13 @@ class Board:
         '''
         return self.squares[self._name_offset_dict[field]]
 
+    def get_square_cr(self, column, row):
+        if self.is_valid(column, row):
+            square_offset = row * 8 + column   # offset in list of board squares
+            square = self.squares[square_offset]
+            return square
+        return False
+
     def give_piece(self, piece, destination):
         print('Board/give_piece:', piece.name_long, piece.field, destination.name)
         destination.piece = piece
@@ -124,7 +130,7 @@ class Board:
         else:
             return True
 
-    def is_in_board(self, col, row):
+    def is_valid(self, col, row):
         if col < 0 or col > 7:        # is field beyond board ?
             return False
         if row < 0 or row > 7:
