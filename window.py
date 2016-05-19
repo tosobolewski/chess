@@ -167,7 +167,6 @@ class Window():
                     x, y = destination.canvas_center
                     id = canvas.create_image(x, y,image=self.photo_cross_red, tags='cross')
                     self.id_utils_dict[id] = (destination, None)
-                    pass
 
     def show_pieces(self, canvas, piece_list, player):
         for piece in piece_list:
@@ -256,6 +255,8 @@ class PlayerPanel():
         # create status label (is moving/waiting)
         self.labelStatus = Label(self.frame, text='Status: ' + self.player.status)
         self.labelStatus.pack()
+        self.labelStatusCheckMate = Label(self.frame, text='Check/Mate: ' + self.player.status_check_mate)
+        self.labelStatusCheckMate.pack()
         # create captured label
         self.labelCaptured = Label(self.frame, text='Player ' + self.player_name + ' captured:')
         self.labelCaptured.pack()
@@ -284,8 +285,11 @@ class PlayerPanel():
             self.captured_number = len(self.pieces_captured)
 
     def update_status(self):
-        # status
         self.labelStatus.config(text='Status: ' + self.player.status)
+        if self.player.check_flag or self.player.mate_flag:
+            self.labelStatusCheckMate.config(text='Check/Mate: ' + self.player.status_check_mate, fg='red')
+        else:
+            self.labelStatusCheckMate.config(text='Check/Mate: ' + self.player.status_check_mate, fg='black')
 
     def _show(self, piece, index):
         '''

@@ -280,6 +280,11 @@ class Game():
         else:
             self.last_move = [source, destination, None]
 
+
+
+        # todo check pawn promotion
+
+
         self.en_passant = False                             # clear en passant after every move
         if isinstance(piece, Pion):
             if int(abs(source.row - destination.row)) == 2: # if condition true, set remember en passant for next move
