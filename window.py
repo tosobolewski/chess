@@ -7,7 +7,7 @@ PIECES = ['king', 'queen', 'rook', 'bishop', 'knight', 'pawn']
 NAME_CONVERSION_DICT = {'K': 'king', 'H': 'queen', 'W': 'rook', 'G': 'bishop', 'S': 'knight', 'P': 'pawn'}
 PATH_IMAGE_BIG = 'image/150x150px'
 PATH_IMAGE_MEDIUM = 'image/40x40px'
-PATH_IMAGE_SMALL ='image/26x26px'
+PATH_IMAGE_SMALL = 'image/26x26px'
 PATH_UTILS_MEDIUM = 'image/40x40px'
 
 IMAGE_SMALL_WIDTH = 26   # pixel
@@ -70,15 +70,16 @@ class Window():
         self.id_utils_dict = {}
 
         # mouse events
-        Widget.bind(self.canvasMain, "<Button-1>", self.mouseDown)
+        Widget.bind(self.canvasMain, "<Button-1>", self.mouse_down)
 
         # run tkinter main loop
         self.root.mainloop()
 
     def button_start_game(self):
+        self.canvasMain.delete('piece')
+        self.hide_touch_and_utils(self.canvasMain)
         self.game.start_game()
 
-        self.canvasMain.delete('piece')
         # show pieces on board in start position
         for player in self.board.players:
             self.show_pieces(self.canvasMain, player.pieces_own, player)
@@ -117,46 +118,24 @@ class Window():
         self.is_movable_fields_show = False
         self.id_utils_dict = {}
 
-    def mouseDown(self, event):
+    def mouse_down(self, event):
         canvasx = self.canvasMain.canvasx(event.x)
         canvasy = self.canvasMain.canvasx(event.y)
         id = self.canvasMain.find_closest(canvasx, canvasy)
         id = id[0]
 
+        cp = self.game.current_player           # remember current player before Game logic change it
 
         square = self.get_square(id)
+        self.game.select(cp, square)            # send mouse selected field to Game; run game.select()
 
-        # remember here current player before game change it
-        cp = self.game.current_player
+        # update canvas board
+        self.update_board(cp)
 
-        # send mouse selected field to Game, where Game state and Board state are update
-        self.game.select(self.game.current_player, square.name)
-
-        # if player touch first field show that field and possible moves
-        if cp.is_touching():
-            self.show_touch(self.canvasMain, cp.get_touch().field)
-            self.show_movable_fields(self.canvasMain, cp.get_touch())
-        else:
-            self.hide_touch_and_utils(self.canvasMain)
-
-        # if player captured opponent's piece, clear that piece on canvas board
-        if cp.last_captured:
-            if cp.last_captured.canvas_id:
-                self.remove(self.canvasMain, cp.last_captured.canvas_id)
-                cp.last_captured.canvas_id = None
-
-        # if player move, move his pieces on canvas board
-        if self.board.last_move == self.last_move_copy:
-            pass
-        else:
-            self.update(self.canvasMain, self.board.last_move)
-            self.last_move_copy = self.board.last_move
-
-        # update player panel status
+        # update player panel
         for player in self.game.players:
             player.player_panel.update_status()
         cp.player_panel.update_captured()
-        cp.last_captured = None
 
     def remove(self, canvas, id):
         canvas.delete(id)
@@ -182,12 +161,12 @@ class Window():
         if self.is_movable_fields_show:
             return False
         else:
-            if piece.getCurrentMoves():
-                for offset in piece.getCurrentMoves():
-                    square = self.board.squares[offset]
-                    x, y = square.canvas_center
+            if self.game.get_valid_moves(piece):
+                for move_info in self.game.get_valid_moves(piece):
+                    destination, capture = move_info
+                    x, y = destination.canvas_center
                     id = canvas.create_image(x, y,image=self.photo_cross_red, tags='cross')
-                    self.id_utils_dict[id] = (square, None)
+                    self.id_utils_dict[id] = (destination, None)
                     pass
 
     def show_pieces(self, canvas, piece_list, player):
@@ -221,18 +200,34 @@ class Window():
             self.id_csquare_dict[canvassquare.id] = canvassquare
             square.canvas_center = ((left+right)/2, (top+bottom)/2)
 
-    def update(self, canvas, fields):
-        '''
-        Updates two fields on canvas board.
-        :param fields: list of two fields (as string) changed after 'move' a piece; field_source and field_destination
-        :return:
-        '''
-        for field in fields:
-            square = self.board.get_square(field)
-            if square.piece:
-                id = square.piece.canvas_id
-                new_canvasx, new_canvasy = square.canvas_center
-                canvas.coords(id, new_canvasx, new_canvasy)
+    def update_board(self, player):
+
+        # hide or show touch field, movable and catchable fields
+        if player.is_touching():
+            self.show_touch(self.canvasMain, player.get_touch().field)
+            self.show_movable_fields(self.canvasMain, player.get_touch())
+        else:
+            self.hide_touch_and_utils(self.canvasMain)
+
+        # move pieces on canvas board
+        if self.game.last_move == self.last_move_copy:  # no move
+            pass
+        else:                                           # update move
+            for square in self.game.last_move[:2]:
+                if square:
+                    if square.piece:
+                        new_canvasx, new_canvasy = square.canvas_center
+                        self.canvasMain.coords(square.piece.canvas_id, new_canvasx, new_canvasy)
+
+            # if player captured opponent's piece, clear that piece on canvas board
+            for piece in self.game.last_move[2:]:
+                if piece:
+                    if piece.canvas_id:
+                        self.remove(self.canvasMain, piece.canvas_id)
+                        piece.canvas_id = None
+
+            # set update flag
+            self.last_move_copy = self.game.last_move
 
 
 class CanvasSquare():
@@ -282,13 +277,14 @@ class PlayerPanel():
         Updates player status.
         :return:
         '''
-        self.pieces_captured = self.player.pieces_captured
+        # self.pieces_captured = self.player.pieces_captured
         if len(self.pieces_captured) > self.captured_number:
             for i in range(self.captured_number, len(self.pieces_captured)):
                 self._show(self.pieces_captured[i], i)
             self.captured_number = len(self.pieces_captured)
 
     def update_status(self):
+        # status
         self.labelStatus.config(text='Status: ' + self.player.status)
 
     def _show(self, piece, index):

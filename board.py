@@ -52,7 +52,6 @@ class Board:
         self.squares = []   # will fill below by square objects
         self.players = players
         self._name_offset_dict = {}     # squares dictionary
-        self.last_move = [] # list of two fields, source and destination for move
 
         # build all squares on board
         print('board, create board squares')
@@ -108,6 +107,15 @@ class Board:
         '''
         return self.squares[self._name_offset_dict[field]]
 
+    def give_piece(self, piece, destination):
+        print('Board/give_piece:', piece.name_long, piece.field, destination.name)
+        destination.piece = piece
+
+    def move(self, piece, destination):
+        print('Board/move:', piece.name_long, piece.field, destination.name)
+        piece_ = self.take_piece(piece)
+        self.give_piece(piece_, destination)
+        destination.piece.update_field(destination.name)           # update board field in piece
 
     def is_empty(self, field):
         square = self.get_square(field)
@@ -116,16 +124,12 @@ class Board:
         else:
             return True
 
-
-
-    def move(self, piece, dest_field):
-        source_field = piece.field
-        if self.is_empty(dest_field):       # TODO test maybe delete later, move it to Game
-            moving_piece = self.remove(piece)
-            self.add(moving_piece, dest_field)
-            moving_piece.update_field(dest_field)           # update board field in piece
-            self.last_move = [source_field, dest_field]
-            return True
+    def is_in_board(self, col, row):
+        if col < 0 or col > 7:        # is field beyond board ?
+            return False
+        if row < 0 or row > 7:
+            return False
+        return True
 
     def remove(self, piece):
         square = self.get_square(piece.field)
@@ -136,11 +140,16 @@ class Board:
     def show(self):
         for n in reversed(range(len(HORIZONTAL))):
             for square in self.get_row(n):
-                if square.piece == None:
-                    print (square.color[0:5].center(5), end = ' ')
+                if not square.piece:
+                    print(square.color[0:5].center(5), end=' ')
                 else:
-                    print (square.piece.name_short.center(5), end = ' ')
+                    print(square.piece.name_short.center(5), end=' ')
             print()
+
+    def take_piece(self, piece):
+        temp = piece
+        self.get_square(piece.field).piece = None
+        return temp
 
 # ------------------------------------------ main --------------------------------------
 

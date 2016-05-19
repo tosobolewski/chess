@@ -1,6 +1,5 @@
 from pieces import *
 
-
 PLAYER_STATUS = ['waiting', 'moving']
 
 
@@ -13,37 +12,30 @@ class Player():
         self._touch = False          # piece object
         self.status = PLAYER_STATUS[0]      # status = string 'waiting' or 'moving'
         self.forward = forward     # direction, when pieces move forward (N)orth for white or (S)outh for balck
-        self.last_captured = None    # captured pieces object
-
-
+        self.king = None
 
     def add(self, piece):
         if piece.color == self.color_pieces:
             self.pieces_own.append(piece)
+            if isinstance(piece, Król):
+                self.king = piece
             return True
         else:
             return False
 
-
-    # def add_captured(self, piece):
-    #     self.pieces_captured.append(piece)
-
-    def clear_pieces(self):
-        self.pieces_own = []
-        self.pieces_captured = []
-
-    def clear_touch(self):
-        if self._touch:
-            self._touch.clear_current_moves()
-        self._touch = False
-
-    def capture(self, piece):
+    def add_captured(self, piece):
         if self.name == piece.player.name:
             return False
-        removed = piece.player.remove(piece)
-        self.pieces_captured.append(removed)
-        self.last_captured = removed
+        else:
+            self.pieces_captured.append(piece)
+            return True
 
+    def clear(self):
+        self.pieces_own = []
+        self.pieces_captured = []
+        self._touch = False                 # piece object
+        self.status = PLAYER_STATUS[0]      # status = string 'waiting' or 'moving'
+        self.king = None
 
     def get_touch(self):
         return self._touch

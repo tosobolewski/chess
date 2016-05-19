@@ -1,3 +1,4 @@
+
 class Piece:
     def __init__(self, player, field):
         self.player = player
@@ -8,7 +9,6 @@ class Piece:
         self.name_long = None
         self.photo = None
         self.canvas_id = None
-        #self.valid_offsets_all = {}
         self.current_valid_moves = [] # offsets to fields where piece can move on board
         self.first_move_vectors = {}
         self.move_vectors = {}
@@ -17,9 +17,6 @@ class Piece:
     def clear_current_moves(self):
         self.current_valid_moves = []
 
-    def getColor(self):
-        return self.color
-
     def getMoveVectors(self):
             '''
             Return dictionary {direction : [vectors]} vectors when piece can move
@@ -27,13 +24,11 @@ class Piece:
             '''
             return self.move_vectors
 
-
     def getCurrentMoves(self):
         if self.current_valid_moves:
             return self.current_valid_moves
         else:
             return False
-
 
     def update_field(self, field):
         self.field = field
@@ -52,20 +47,26 @@ class Pion(Piece):
         self.name_long = 'Pion'
         self.possible_moves = [[0,0], [0,1]]
         self.start_field = field
-        if self.player.forward == 'N':  # 'white'
-            self.first_move_vectors = {'N': [[0, 1], [0, 2]]}
-            self.move_vectors = {'N': [[0, 1]]}
-        else:                               # 'black'
+        self.capture_vectors = []
+        if self.player.forward == 'N':                              # 'white'
+            self.first_move_vectors = {'N' : [[0, 1], [0, 2]]}
+            self.move_vectors = {'N' : [[0, 1]]}
+            self.capture_vectors = {'NW' : [[-1,1]],
+                                    'NE' : [[1,1]]
+                                    }
+        else:                                                       # 'black'
             self.first_move_vectors = {'S': [[0, -1], [0, -2]]}
             self.move_vectors = {'S': [[0, -1]]}
+            self.capture_vectors = {'SW' : [[-1,-1]],
+                                    'SE' : [[1,-1]]
+                                    }
 
     def getMoveVectors(self):
         if self.start_field == self.field:  # if first move, pawn moves one or two fields ahead,
                                             # next moves only one field
-
-            return self.first_move_vectors
+            return (self.first_move_vectors, self.capture_vectors)
         else:
-            return self.move_vectors
+            return (self.move_vectors, self.capture_vectors)
 
 
 class Wieża(Piece):
@@ -141,6 +142,7 @@ class Król(Piece):
 
 
 # ----------------------------------------- main ------------------------------------------
+
 
 def test():
     pass

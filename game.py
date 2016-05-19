@@ -12,7 +12,11 @@ class Game():
         self.current_player = self.players[0]
         self.pause_player = self.players[1]
         self.play = False
-        self.last_move = [None, None, None, None]
+        self.last_move = []         # (source, destination, capture) / 3 x square
+
+        self.en_passant = False
+        self.valid_moves = []
+
         pass
 
     def end_game(self):
@@ -21,9 +25,11 @@ class Game():
     def start_game(self):
         # clear player state
         for player in self.board.players:
-            player.clear_pieces()
-            player.clear_touch()
-            player.last_captured = None
+            player.clear()
+
+        self.en_passant = False
+        self.valid_moves = []
+        self.last_move = []
 
         self.current_player = self.players[0]
         self.pause_player = self.players[1]
@@ -44,100 +50,178 @@ class Game():
 
     def get_valid_moves(self, piece):
         '''
-        Return list of all valid offsets of squares in list 'self.squares=[]' in Board,
-        that piece can move on or captured
+        Return valid moves for current piece as list of tuples (destination_square, capture_square)
         :param piece:   piece object that valid moves are calculated
-        :return:        list [int, int, ..]
+        :return:        list [(destination_square, capture_square), (destination_square, capture_square), ..]
         '''
-        square = self.board.get_square(piece.field)
-        square_col = square.col
-        square_row = square.row
-        square_offset = square.offset
-        vectors_all = piece.getMoveVectors()
-        color = square.piece.color
-
-        valid_offsets = []
-        for direction in vectors_all:
-            for c, r in vectors_all[direction]:
-                move_col = square_col + c
-                move_row = square_row + r
-                move_offset = move_row * 8 + move_col
-
-                if move_col < 0 or move_col > 7:
-                    break                           # break appending offsets in current direction
-                if move_row < 0 or move_row > 7:
-                    break
-
-                square_dest = self.board.squares[move_offset]
-                if square_dest.piece:
-                    if square_dest.piece.color == color:    # self piece
-                        break
-                    else:
-                        valid_offsets.append(move_offset)
-                        break
-                else:
-                    valid_offsets.append(move_offset)
-        return valid_offsets
-
-
-
-    def is_valid_move(self, piece, dest_field):
-        destination_square = self.board.get_square(dest_field)
-        if destination_square.offset in self.get_valid_moves(piece):
-            return True
+        if self.valid_moves:
+            return self.valid_moves
         else:
-            return False
+            self.set_valid_moves(piece)
+            return self.valid_moves
 
+    def is_check(self):
+        pass
 
-    def select(self, player, field):
+    def is_mate(self):
+        pass
 
+    def is_pawn_promotion(self):
+        pass
+
+    def is_valid_move(self, piece, destination):
+        for move_data in self.valid_moves:
+            valid_destination_square, valid_capture_square = move_data
+            if destination == valid_destination_square:
+                source_square = self.board.get_square(piece.field)
+                if valid_capture_square:
+                    valid_capture_piece = valid_capture_square.piece
+                else:
+                    valid_capture_piece = None
+                return (source_square, valid_destination_square, valid_capture_piece)
+        return (False, False, False)
+
+    def move(self, piece, source, destination, capture_piece):
+
+        # release capture & move on board
+        if capture_piece:
+            print('Game/move/capture:', capture_piece.name_long, capture_piece.color, capture_piece.field)
+            taken_piece = self.board.take_piece(capture_piece)
+            self.current_player.add_captured( taken_piece )
+        self.board.move(piece, destination)
+
+        # update some game state after move
+        if capture_piece:
+            self.last_move = [source, destination, capture_piece]
+        else:
+            self.last_move = [source, destination, None]
+        self.en_passant = False
+        self.valid_moves = []
+
+        # set remember en passant for next move
+        if isinstance(piece, Pion):
+            if int(abs(source.row - destination.row)) == 2:
+                self.en_passant = True
+
+    def select(self, player, square):
+        print('Game/select: ', 'player',player.name,'square',square.name)
         if self.play:
             if player == self.current_player:
-                # if player select second field
-                if player.is_touching():
-                    dest_square = self.board.get_square(field)
 
-                    # if player select the same field that touch before
-                    if player.get_touch().field == field:
-                        player.clear_touch()
+                if player.is_touching():
+                    # if player select second square (destination)
+                    piece = player.get_touch()
+                    source = self.board.get_square(piece.field)
+                    destination = square
+
+                    # if player select the same field that touched before
+                    if source == destination:
+                        self.set_untouching()
                         return None
 
                     #validate move
-                    touch_piece = player.get_touch()
-                    if self.is_valid_move(touch_piece, field) != True:
-                        return None
-
-                    # if player select empty second field
-                    if dest_square.is_empty():
-                        # update board state
-                        self.board.move(touch_piece, field)
-                        # update player state
-                        player.clear_touch()
-                        # turn players
-                        self.turn_players()
+                    source, valid_destination, valid_capture_piece = self.is_valid_move(piece, destination)
+                    if valid_destination == destination:
+                        pass
                     else:
-                        # if player select second field owned by opponent's piece
-                        capture_piece = dest_square.piece
-                        if player != capture_piece.player:
-                            # captured: removes & move
-                            # give piece from other player
-                            player.capture(capture_piece)
-                            # update board state
-                            self.board.remove(capture_piece)
-                            self.board.move(touch_piece, field)
-                            # update player state
-                            player.clear_touch()
-                            # turn players in game
-                            self.turn_players()
+                        return None         # can't move on that field
+
+                    # move
+                    self.move(piece, source, valid_destination, valid_capture_piece)
+                    # other settings
+                    self.set_untouching()
+                    # turn players
+                    self.turn_players()
 
                 else:
-                    # if player select first field
-                    piece = self.board.get_square(field).piece
+                    # if player select first square (source)
+                    source = square
+                    piece = source.piece
                     if piece:
                         if player.set_touch(piece):
+                            # TODO check this down below:
                             piece.set_current_moves(self.get_valid_moves(piece))
 
+    def set_untouching(self):
+        self.current_player.set_untouching()
+        self.valid_moves = []
 
+    def set_valid_moves(self, piece):
+        '''
+        Set lists of all valid move and capture field offsets of squares in Board,
+        :param piece:   piece object that valid moves are calculated
+        :return:        -
+        '''
+
+        self.valid_moves = []
+        source = self.board.get_square(piece.field)
+        color = source.piece.color
+
+        if isinstance(piece, Pion):
+            move_vectors, capture_vectors = piece.getMoveVectors()
+
+            # pawn move
+            for direction in move_vectors:
+                for colvec, rowvec in move_vectors[direction]:
+                    target_col = source.col + colvec
+                    target_row = source.row + rowvec
+                    square_offset = target_row * 8 + target_col   # offset in list of board squares
+
+                    if self.board.is_in_board(target_col, target_row):
+
+                        destination = self.board.squares[square_offset]
+                        if destination.piece:                       # any piece, no move
+                            break
+                        else:                                       # empty field
+                            self.valid_moves.append((destination, False))
+
+            # pawn capture
+            for direction in capture_vectors:
+                for colvec, rowvec in capture_vectors[direction]:
+                    target_col = source.col + colvec
+                    target_row = source.row + rowvec
+
+                    if self.board.is_in_board(target_col, target_row):
+
+                        square_offset = target_row * 8 + target_col   # offset in list of board squares
+                        destination = self.board.squares[square_offset]
+                        if destination.piece:
+                            if destination.piece.color == color:    # self piece, no capture
+                                break
+                            else:                                   # opponent's piece, capture
+                                capture = destination
+                                self.valid_moves.append((destination, capture))
+                                break
+                        else:
+                            if self.en_passant:
+                                previous_destination = self.last_move[1]
+                                previous_move_col = previous_destination.col
+                                if previous_move_col == destination.col:
+                                    if previous_destination.row == source.row:        # can realise en passant
+                                        capture = previous_destination
+                                        self.valid_moves.append((destination, capture))
+
+        else:
+            # other pieces
+            vectors = piece.getMoveVectors()
+            for direction in vectors:
+                for colvec, rowvec in vectors[direction]:
+                    target_col = source.col + colvec
+                    target_row = source.row + rowvec
+
+                    if self.board.is_in_board(target_col, target_row):
+
+                        square_offset = target_row * 8 + target_col   # offset in list of board squares
+                        destination = self.board.squares[square_offset]
+                        if destination.piece:
+                            if destination.piece.color == color:    # self piece
+                                break
+                            else:                                   # opponent's piece
+                                capture = destination
+                                self.valid_moves.append((destination, capture))
+                                break
+                        else:                                           # empty field
+                            self.valid_moves.append((destination, False))
 
     def turn_players(self):
         # turn players
